@@ -1,5 +1,5 @@
 # CheckMate Machine ♟️
-IEEE-VIT's Chess Playground. Includes a Chess Engine and some support tools for using it.
+IEEE-VIT's Chess Playground. Includes a Chess Engine, a working demo and some support tools for using it.
 
 ## Overview
 CheckMate Machine is a compact toolkit created by IEEE-VIT that combines:
