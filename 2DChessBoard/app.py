@@ -8,9 +8,13 @@ from PIL import Image
 import pyautogui  # For screen capture
 from pathlib import Path
 import time
-
+try:
+    from torchsummary import summary
+except ImportError:
+    print("torchsummary not found. Please install it using 'pip install torchsummary'.")
 
 class ChessPieceCNN(nn.Module):
+
     def __init__(self, num_classes):
         super(ChessPieceCNN, self).__init__()
 
@@ -141,15 +145,31 @@ class ChessPieceClassifier:
         """
         self.device = torch.device(device if torch.cuda.is_available() else 'cpu')
         self.class_names = class_names
+        self.model = None
 
         # Load model
         num_classes = len(class_names)
-        self.model = ChessPieceCNN(num_classes).to(self.device)
-        self.model.load_state_dict(torch.load(model_path, map_location=self.device))
-        self.model.eval()
+        model_path = Path(model_path)
+        if not model_path.is_file():
+            print(f"Error: Model file not found at {model_path.resolve()}")
+            return
+
+        try:
+            self.model = ChessPieceCNN(num_classes).to(self.device)
+            self.model.load_state_dict(torch.load(model_path, map_location=self.device))
+            self.model.eval()
+        except Exception as error:
+            self.model = None
+            print(f"Error: Could not load model from {model_path.resolve()}: {error}")
+            return
 
         print(f"Model loaded successfully on {self.device}")
         print(f"Classes: {self.class_names}")
+
+    def _require_model(self):
+        if self.model is None:
+            raise RuntimeError("Chess piece model is unavailable; check the model-load error above.")
+        return self.model
 
     def predict(self, square_img):
         """
@@ -159,13 +179,15 @@ class ChessPieceClassifier:
             predicted_class: Class name (e.g., 'wk', 'bp', 'empty')
             confidence: Confidence score (0-1)
         """
+        model = self._require_model()
+
         # Preprocess image
         tensor_img = preprocess_square(square_img)
         tensor_img = tensor_img.unsqueeze(0).to(self.device)  # Add batch dimension
 
         # Inference
         with torch.no_grad():
-            outputs = self.model(tensor_img)
+            outputs = model(tensor_img)
             probabilities = F.softmax(outputs, dim=1)
             confidence, predicted_idx = torch.max(probabilities, 1)
 
@@ -184,13 +206,15 @@ class ChessPieceClassifier:
         Returns:
             predictions: List of (class_name, confidence) tuples
         """
+        model = self._require_model()
+
         # Preprocess all squares
         tensor_batch = torch.stack([preprocess_square(img) for img in square_images])
         tensor_batch = tensor_batch.to(self.device)
 
         # Batch inference
         with torch.no_grad():
-            outputs = self.model(tensor_batch)
+            outputs = model(tensor_batch)
             probabilities = F.softmax(outputs, dim=1)
             confidences, predicted_indices = torch.max(probabilities, 1)
 
@@ -484,7 +508,7 @@ class ChessMateApp:
 
 if __name__ == "__main__":
     # Configuration
-    MODEL_PATH = "chess_piece_cnn.pth"  # Path to your trained model
+    MODEL_PATH = Path(__file__).resolve().parent / "chess_piece_cnn.pth"
 
     # Class names match training order
     CLASS_NAMES = ['bb', 'bk', 'bn', 'bp', 'bq', 'br',
