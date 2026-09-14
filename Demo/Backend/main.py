@@ -1,4 +1,8 @@
+import logging
+import os
+
 from fastapi import FastAPI, HTTPException
+from fastapi import Request
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
@@ -20,10 +24,44 @@ class BestMoveRequest(BaseModel):
 
 app = FastAPI(title="Checkmate Engine API")
 
-# Allow CORS from local frontend during development
-origins = [
-    "https://checkmate-machine.pages.dev",
+DEFAULT_CORS_ORIGINS = [
+	"http://localhost:3000",
+	"http://127.0.0.1:3000",
 ]
+
+
+def get_cors_origins():
+	configured_origins = os.getenv("CORS_ORIGINS")
+	if not configured_origins:
+		logging.warning(
+			"CORS_ORIGINS is not set; allowing local development origins: %s",
+			", ".join(DEFAULT_CORS_ORIGINS),
+		)
+		return DEFAULT_CORS_ORIGINS
+
+	origins = [origin.strip() for origin in configured_origins.split(",") if origin.strip()]
+	if not origins:
+		logging.warning(
+			"CORS_ORIGINS is empty; allowing local development origins: %s",
+			", ".join(DEFAULT_CORS_ORIGINS),
+		)
+		return DEFAULT_CORS_ORIGINS
+
+	return origins
+
+
+origins = get_cors_origins()
+
+
+@app.middleware("http")
+async def warn_if_cors_origin_blocked(request: Request, call_next):
+	origin = request.headers.get("origin")
+	if origin and origin not in origins:
+		logging.warning(
+			"CORS request from blocked origin %s; configure CORS_ORIGINS to allow it",
+			origin,
+		)
+	return await call_next(request)
 
 app.add_middleware(
     CORSMiddleware,

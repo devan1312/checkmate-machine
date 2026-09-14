@@ -37,6 +37,9 @@ pip install -r requirements.txt
 3) Run the backend (FastAPI + engine)
 
 ```bash
+# Optional: comma-separated frontend origins. Defaults to localhost:3000.
+# Windows PowerShell: $env:CORS_ORIGINS="https://your-frontend.example"
+# macOS / Linux: export CORS_ORIGINS="https://your-frontend.example"
 uvicorn Demo.Backend.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
